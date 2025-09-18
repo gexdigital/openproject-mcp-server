@@ -262,6 +262,114 @@ Create a new project version/milestone.
 - `end_date` (string, optional): End date (YYYY-MM-DD format)
 - `status` (string, optional): Version status (open, locked, closed)
 
+#### 21. `create_project`
+Create a new project.
+
+**Parameters:**
+- `name` (string, required): Project name
+- `identifier` (string, required): Project identifier (unique)
+- `description` (string, optional): Project description
+- `public` (boolean, optional): Whether the project is public
+- `status` (string, optional): Project status
+- `parent_id` (integer, optional): Parent project ID
+
+**Example:**
+```
+Create a new project named "Website Redesign" with identifier "web-redesign"
+```
+
+#### 22. `update_project`
+Update an existing project.
+
+**Parameters:**
+- `project_id` (integer, required): Project ID
+- `name` (string, optional): Project name
+- `identifier` (string, optional): Project identifier
+- `description` (string, optional): Project description
+- `public` (boolean, optional): Whether the project is public
+- `status` (string, optional): Project status
+- `parent_id` (integer, optional): Parent project ID
+
+#### 23. `delete_project`
+Delete a project.
+
+**Parameters:**
+- `project_id` (integer, required): Project ID
+
+#### 24. `get_project`
+Get detailed information about a specific project.
+
+**Parameters:**
+- `project_id` (integer, required): Project ID
+
+#### 25. `create_membership`
+Create a new project membership.
+
+**Parameters:**
+- `project_id` (integer, required): Project ID
+- `user_id` (integer, optional): User ID (required if group_id not provided)
+- `group_id` (integer, optional): Group ID (required if user_id not provided)
+- `role_ids` (array, optional): Array of role IDs
+- `role_id` (integer, optional): Single role ID (alternative to role_ids)
+- `notification_message` (string, optional): Optional notification message
+
+**Example:**
+```
+Add user 5 to project 2 with role ID 3 (Developer role)
+```
+
+#### 26. `update_membership`
+Update an existing membership.
+
+**Parameters:**
+- `membership_id` (integer, required): Membership ID
+- `role_ids` (array, optional): Array of role IDs
+- `role_id` (integer, optional): Single role ID
+- `notification_message` (string, optional): Optional notification message
+
+#### 27. `delete_membership`
+Delete a membership.
+
+**Parameters:**
+- `membership_id` (integer, required): Membership ID
+
+#### 28. `get_membership`
+Get detailed information about a specific membership.
+
+**Parameters:**
+- `membership_id` (integer, required): Membership ID
+
+#### 29. `list_project_members`
+List all members of a specific project.
+
+**Parameters:**
+- `project_id` (integer, required): Project ID
+
+**Example:**
+```
+List all members of project 5
+```
+
+#### 30. `list_user_projects`
+List all projects a specific user is assigned to.
+
+**Parameters:**
+- `user_id` (integer, required): User ID
+
+#### 31. `list_roles`
+List all available roles.
+
+**Example:**
+```
+List all available roles in the OpenProject instance
+```
+
+#### 32. `get_role`
+Get detailed information about a specific role.
+
+**Parameters:**
+- `role_id` (integer, required): Role ID
+
 ## Development
 
 ### Running Tests
@@ -279,13 +387,26 @@ flake8 openproject-mcp.py
 
 ## Tool Compatibility & Test Results
 
-### ✅ Fully Working Tools (19/21)
+### ✅ Fully Working Tools (31/33)
 All these tools have been tested and work correctly with admin privileges:
-- `test_connection`, `check_permissions`, `list_projects`, `list_users`
+
+**Core Project Management:**
+- `test_connection`, `check_permissions`, `list_projects`, `create_project`, `update_project`
+- `delete_project`, `get_project`
+
+**Work Package Management:**
 - `list_work_packages`, `list_types`, `create_work_package`, `update_work_package`
-- `delete_work_package`, `get_work_package`, `list_time_entries`, `create_time_entry`
-- `update_time_entry`, `delete_time_entry`, `list_versions`, `create_version`
-- `list_statuses`, `list_priorities`, `get_user`
+- `delete_work_package`, `get_work_package`, `list_statuses`, `list_priorities`
+
+**User & Membership Management:**
+- `list_users`, `get_user`, `create_membership`, `update_membership`, `delete_membership`
+- `get_membership`, `list_project_members`, `list_user_projects`, `list_roles`, `get_role`
+
+**Time Tracking:**
+- `list_time_entries`, `create_time_entry`, `update_time_entry`, `delete_time_entry`
+
+**Project Versions:**
+- `list_versions`, `create_version`
 
 ### ⚠️ Partially Working Tools
 - **`list_memberships`**: Works globally and with `project_id` filtering. User ID filtering (`user_id`) may not be supported in all OpenProject instances.
@@ -301,10 +422,13 @@ All these tools have been tested and work correctly with admin privileges:
 
 ### Permission Requirements
 Most create/update/delete operations require appropriate permissions:
+- **Project Operations**: Require global "Create project" and "Edit project" permissions. Deletion typically requires admin rights
 - **Work Package Operations**: Require "Create/Edit work packages" permission in target projects
+- **Membership Management**: Require "Manage members" permission for target projects
 - **Time Entry Operations**: Require time tracking permissions
 - **Version Management**: Require project admin or version management permissions
 - **User Operations**: Admin privileges may be needed for comprehensive user management
+- **Role Management**: Read-only operations generally available; admin privileges may be needed for detailed role information
 
 Use the `check_permissions` tool to diagnose permission-related issues.
 

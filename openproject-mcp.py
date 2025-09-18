@@ -647,7 +647,7 @@ class OpenProjectClient:
     async def check_permissions(self) -> Dict:
         """
         Check user permissions and capabilities.
-        
+
         Returns:
             Dict: User information including permissions
         """
@@ -657,6 +657,219 @@ class OpenProjectClient:
         except Exception as e:
             logger.error(f"Failed to check permissions: {e}")
             return {}
+
+    async def create_project(self, data: Dict) -> Dict:
+        """
+        Create a new project.
+
+        Args:
+            data: Project data including name, identifier, description, etc.
+
+        Returns:
+            Dict: Created project data
+        """
+        # Prepare payload
+        payload = {}
+
+        # Set required fields
+        if "name" in data:
+            payload["name"] = data["name"]
+        if "identifier" in data:
+            payload["identifier"] = data["identifier"]
+        if "description" in data:
+            payload["description"] = {"raw": data["description"]}
+        if "public" in data:
+            payload["public"] = data["public"]
+        if "status" in data:
+            payload["status"] = data["status"]
+        if "parent_id" in data:
+            if "_links" not in payload:
+                payload["_links"] = {}
+            payload["_links"]["parent"] = {"href": f"/api/v3/projects/{data['parent_id']}"}
+
+        return await self._request("POST", "/projects", payload)
+
+    async def update_project(self, project_id: int, data: Dict) -> Dict:
+        """
+        Update an existing project.
+
+        Args:
+            project_id: The project ID
+            data: Update data including fields to modify
+
+        Returns:
+            Dict: Updated project data
+        """
+        # First get current project to get lock version if needed
+        try:
+            current_project = await self.get_project(project_id)
+            lock_version = current_project.get("lockVersion", 0)
+        except:
+            lock_version = 0
+
+        # Prepare payload with lock version
+        payload = {"lockVersion": lock_version}
+
+        # Add fields to update
+        if "name" in data:
+            payload["name"] = data["name"]
+        if "identifier" in data:
+            payload["identifier"] = data["identifier"]
+        if "description" in data:
+            payload["description"] = {"raw": data["description"]}
+        if "public" in data:
+            payload["public"] = data["public"]
+        if "status" in data:
+            payload["status"] = data["status"]
+        if "parent_id" in data:
+            if "_links" not in payload:
+                payload["_links"] = {}
+            payload["_links"]["parent"] = {"href": f"/api/v3/projects/{data['parent_id']}"}
+
+        return await self._request("PATCH", f"/projects/{project_id}", payload)
+
+    async def delete_project(self, project_id: int) -> bool:
+        """
+        Delete a project.
+
+        Args:
+            project_id: The project ID
+
+        Returns:
+            bool: True if successful
+        """
+        await self._request("DELETE", f"/projects/{project_id}")
+        return True
+
+    async def get_project(self, project_id: int) -> Dict:
+        """
+        Retrieve a specific project by ID.
+
+        Args:
+            project_id: The project ID
+
+        Returns:
+            Dict: Project data
+        """
+        return await self._request("GET", f"/projects/{project_id}")
+
+    async def get_roles(self) -> Dict:
+        """
+        Retrieve available roles.
+
+        Returns:
+            Dict: API response containing roles
+        """
+        result = await self._request("GET", "/roles")
+
+        # Ensure proper response structure
+        if "_embedded" not in result:
+            result["_embedded"] = {"elements": []}
+        elif "elements" not in result.get("_embedded", {}):
+            result["_embedded"]["elements"] = []
+
+        return result
+
+    async def get_role(self, role_id: int) -> Dict:
+        """
+        Retrieve a specific role by ID.
+
+        Args:
+            role_id: The role ID
+
+        Returns:
+            Dict: Role data
+        """
+        return await self._request("GET", f"/roles/{role_id}")
+
+    async def create_membership(self, data: Dict) -> Dict:
+        """
+        Create a new membership.
+
+        Args:
+            data: Membership data including project, user/group, and roles
+
+        Returns:
+            Dict: Created membership data
+        """
+        # Prepare payload
+        payload = {"_links": {}}
+
+        # Set required fields
+        if "project_id" in data:
+            payload["_links"]["project"] = {"href": f"/api/v3/projects/{data['project_id']}"}
+        if "user_id" in data:
+            payload["_links"]["principal"] = {"href": f"/api/v3/users/{data['user_id']}"}
+        elif "group_id" in data:
+            payload["_links"]["principal"] = {"href": f"/api/v3/groups/{data['group_id']}"}
+        if "role_ids" in data:
+            payload["_links"]["roles"] = [{"href": f"/api/v3/roles/{role_id}"} for role_id in data["role_ids"]]
+        elif "role_id" in data:
+            payload["_links"]["roles"] = [{"href": f"/api/v3/roles/{data['role_id']}"}]
+        if "notification_message" in data:
+            payload["notificationMessage"] = {"raw": data["notification_message"]}
+
+        return await self._request("POST", "/memberships", payload)
+
+    async def update_membership(self, membership_id: int, data: Dict) -> Dict:
+        """
+        Update an existing membership.
+
+        Args:
+            membership_id: The membership ID
+            data: Update data including fields to modify
+
+        Returns:
+            Dict: Updated membership data
+        """
+        # First get current membership to get lock version if needed
+        try:
+            current_membership = await self.get_membership(membership_id)
+            lock_version = current_membership.get("lockVersion", 0)
+        except:
+            lock_version = 0
+
+        # Prepare payload with lock version
+        payload = {"lockVersion": lock_version}
+
+        # Add fields to update
+        if "role_ids" in data:
+            if "_links" not in payload:
+                payload["_links"] = {}
+            payload["_links"]["roles"] = [{"href": f"/api/v3/roles/{role_id}"} for role_id in data["role_ids"]]
+        elif "role_id" in data:
+            if "_links" not in payload:
+                payload["_links"] = {}
+            payload["_links"]["roles"] = [{"href": f"/api/v3/roles/{data['role_id']}"}]
+        if "notification_message" in data:
+            payload["notificationMessage"] = {"raw": data["notification_message"]}
+
+        return await self._request("PATCH", f"/memberships/{membership_id}", payload)
+
+    async def delete_membership(self, membership_id: int) -> bool:
+        """
+        Delete a membership.
+
+        Args:
+            membership_id: The membership ID
+
+        Returns:
+            bool: True if successful
+        """
+        await self._request("DELETE", f"/memberships/{membership_id}")
+        return True
+
+    async def get_membership(self, membership_id: int) -> Dict:
+        """
+        Retrieve a specific membership by ID.
+
+        Args:
+            membership_id: The membership ID
+
+        Returns:
+            Dict: Membership data
+        """
+        return await self._request("GET", f"/memberships/{membership_id}")
 
 
 class OpenProjectMCPServer:
@@ -1045,6 +1258,246 @@ class OpenProjectMCPServer:
                     inputSchema={
                         "type": "object",
                         "properties": {}
+                    }
+                ),
+                Tool(
+                    name="create_project",
+                    description="Create a new project",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "description": "Project name"
+                            },
+                            "identifier": {
+                                "type": "string",
+                                "description": "Project identifier (unique)"
+                            },
+                            "description": {
+                                "type": "string",
+                                "description": "Project description (optional)"
+                            },
+                            "public": {
+                                "type": "boolean",
+                                "description": "Whether the project is public (optional)"
+                            },
+                            "status": {
+                                "type": "string",
+                                "description": "Project status (optional)"
+                            },
+                            "parent_id": {
+                                "type": "integer",
+                                "description": "Parent project ID (optional)"
+                            }
+                        },
+                        "required": ["name", "identifier"]
+                    }
+                ),
+                Tool(
+                    name="update_project",
+                    description="Update an existing project",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "project_id": {
+                                "type": "integer",
+                                "description": "Project ID"
+                            },
+                            "name": {
+                                "type": "string",
+                                "description": "Project name (optional)"
+                            },
+                            "identifier": {
+                                "type": "string",
+                                "description": "Project identifier (optional)"
+                            },
+                            "description": {
+                                "type": "string",
+                                "description": "Project description (optional)"
+                            },
+                            "public": {
+                                "type": "boolean",
+                                "description": "Whether the project is public (optional)"
+                            },
+                            "status": {
+                                "type": "string",
+                                "description": "Project status (optional)"
+                            },
+                            "parent_id": {
+                                "type": "integer",
+                                "description": "Parent project ID (optional)"
+                            }
+                        },
+                        "required": ["project_id"]
+                    }
+                ),
+                Tool(
+                    name="delete_project",
+                    description="Delete a project",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "project_id": {
+                                "type": "integer",
+                                "description": "Project ID"
+                            }
+                        },
+                        "required": ["project_id"]
+                    }
+                ),
+                Tool(
+                    name="get_project",
+                    description="Get detailed information about a specific project",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "project_id": {
+                                "type": "integer",
+                                "description": "Project ID"
+                            }
+                        },
+                        "required": ["project_id"]
+                    }
+                ),
+                Tool(
+                    name="create_membership",
+                    description="Create a new project membership",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "project_id": {
+                                "type": "integer",
+                                "description": "Project ID"
+                            },
+                            "user_id": {
+                                "type": "integer",
+                                "description": "User ID (required if group_id not provided)"
+                            },
+                            "group_id": {
+                                "type": "integer",
+                                "description": "Group ID (required if user_id not provided)"
+                            },
+                            "role_ids": {
+                                "type": "array",
+                                "items": {"type": "integer"},
+                                "description": "Array of role IDs"
+                            },
+                            "role_id": {
+                                "type": "integer",
+                                "description": "Single role ID (alternative to role_ids)"
+                            },
+                            "notification_message": {
+                                "type": "string",
+                                "description": "Optional notification message"
+                            }
+                        },
+                        "required": ["project_id"]
+                    }
+                ),
+                Tool(
+                    name="update_membership",
+                    description="Update an existing membership",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "membership_id": {
+                                "type": "integer",
+                                "description": "Membership ID"
+                            },
+                            "role_ids": {
+                                "type": "array",
+                                "items": {"type": "integer"},
+                                "description": "Array of role IDs"
+                            },
+                            "role_id": {
+                                "type": "integer",
+                                "description": "Single role ID (alternative to role_ids)"
+                            },
+                            "notification_message": {
+                                "type": "string",
+                                "description": "Optional notification message"
+                            }
+                        },
+                        "required": ["membership_id"]
+                    }
+                ),
+                Tool(
+                    name="delete_membership",
+                    description="Delete a membership",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "membership_id": {
+                                "type": "integer",
+                                "description": "Membership ID"
+                            }
+                        },
+                        "required": ["membership_id"]
+                    }
+                ),
+                Tool(
+                    name="get_membership",
+                    description="Get detailed information about a specific membership",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "membership_id": {
+                                "type": "integer",
+                                "description": "Membership ID"
+                            }
+                        },
+                        "required": ["membership_id"]
+                    }
+                ),
+                Tool(
+                    name="list_project_members",
+                    description="List all members of a specific project",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "project_id": {
+                                "type": "integer",
+                                "description": "Project ID"
+                            }
+                        },
+                        "required": ["project_id"]
+                    }
+                ),
+                Tool(
+                    name="list_user_projects",
+                    description="List all projects a specific user is assigned to",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "user_id": {
+                                "type": "integer",
+                                "description": "User ID"
+                            }
+                        },
+                        "required": ["user_id"]
+                    }
+                ),
+                Tool(
+                    name="list_roles",
+                    description="List all available roles",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {}
+                    }
+                ),
+                Tool(
+                    name="get_role",
+                    description="Get detailed information about a specific role",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "role_id": {
+                                "type": "integer",
+                                "description": "Role ID"
+                            }
+                        },
+                        "required": ["role_id"]
                     }
                 )
             ]
@@ -1640,7 +2093,262 @@ class OpenProjectMCPServer:
                         text += f"\n**Tip**: Use this information to understand why certain operations may fail due to insufficient permissions."
                     
                     return [TextContent(type="text", text=text)]
-                
+
+                elif name == "create_project":
+                    data = {
+                        "name": arguments["name"],
+                        "identifier": arguments["identifier"]
+                    }
+
+                    # Add optional fields
+                    for field in ["description", "public", "status", "parent_id"]:
+                        if field in arguments:
+                            data[field] = arguments[field]
+
+                    result = await self.client.create_project(data)
+
+                    text = f"✅ Project created successfully:\n\n"
+                    text += f"- **Name**: {result.get('name', 'N/A')}\n"
+                    text += f"- **ID**: #{result.get('id', 'N/A')}\n"
+                    text += f"- **Identifier**: {result.get('identifier', 'N/A')}\n"
+                    text += f"- **Public**: {'Yes' if result.get('public') else 'No'}\n"
+                    text += f"- **Status**: {result.get('status', 'N/A')}\n"
+
+                    return [TextContent(type="text", text=text)]
+
+                elif name == "update_project":
+                    project_id = arguments["project_id"]
+
+                    # Prepare update data
+                    update_data = {}
+                    for field in ["name", "identifier", "description", "public", "status", "parent_id"]:
+                        if field in arguments:
+                            update_data[field] = arguments[field]
+
+                    if not update_data:
+                        return [TextContent(type="text", text="❌ No fields provided to update.")]
+
+                    result = await self.client.update_project(project_id, update_data)
+
+                    text = f"✅ Project #{project_id} updated successfully:\n\n"
+                    text += f"- **Name**: {result.get('name', 'N/A')}\n"
+                    text += f"- **Identifier**: {result.get('identifier', 'N/A')}\n"
+                    text += f"- **Public**: {'Yes' if result.get('public') else 'No'}\n"
+                    text += f"- **Status**: {result.get('status', 'N/A')}\n"
+
+                    return [TextContent(type="text", text=text)]
+
+                elif name == "delete_project":
+                    project_id = arguments["project_id"]
+
+                    success = await self.client.delete_project(project_id)
+
+                    if success:
+                        text = f"✅ Project #{project_id} deleted successfully."
+                    else:
+                        text = f"❌ Failed to delete project #{project_id}."
+
+                    return [TextContent(type="text", text=text)]
+
+                elif name == "get_project":
+                    project_id = arguments["project_id"]
+                    result = await self.client.get_project(project_id)
+
+                    text = f"**Project Details:**\n\n"
+                    text += f"- **Name**: {result.get('name', 'N/A')}\n"
+                    text += f"- **ID**: #{result.get('id', 'N/A')}\n"
+                    text += f"- **Identifier**: {result.get('identifier', 'N/A')}\n"
+                    text += f"- **Description**: {result.get('description', {}).get('raw', 'No description') if result.get('description') else 'No description'}\n"
+                    text += f"- **Public**: {'Yes' if result.get('public') else 'No'}\n"
+                    text += f"- **Status**: {result.get('status', 'N/A')}\n"
+                    text += f"- **Created**: {result.get('createdAt', 'N/A')}\n"
+                    text += f"- **Updated**: {result.get('updatedAt', 'N/A')}\n"
+
+                    return [TextContent(type="text", text=text)]
+
+                elif name == "create_membership":
+                    data = {
+                        "project_id": arguments["project_id"]
+                    }
+
+                    # Add user or group
+                    if "user_id" in arguments:
+                        data["user_id"] = arguments["user_id"]
+                    elif "group_id" in arguments:
+                        data["group_id"] = arguments["group_id"]
+                    else:
+                        return [TextContent(type="text", text="❌ Either user_id or group_id is required.")]
+
+                    # Add roles
+                    if "role_ids" in arguments:
+                        data["role_ids"] = arguments["role_ids"]
+                    elif "role_id" in arguments:
+                        data["role_id"] = arguments["role_id"]
+                    else:
+                        return [TextContent(type="text", text="❌ Either role_ids or role_id is required.")]
+
+                    # Add optional fields
+                    if "notification_message" in arguments:
+                        data["notification_message"] = arguments["notification_message"]
+
+                    result = await self.client.create_membership(data)
+
+                    text = f"✅ Membership created successfully:\n\n"
+                    text += f"- **ID**: #{result.get('id', 'N/A')}\n"
+
+                    if "_embedded" in result:
+                        embedded = result["_embedded"]
+                        if "project" in embedded:
+                            text += f"- **Project**: {embedded['project'].get('name', 'Unknown')}\n"
+                        if "principal" in embedded:
+                            text += f"- **User/Group**: {embedded['principal'].get('name', 'Unknown')}\n"
+                        if "roles" in embedded:
+                            roles = [role.get('name', 'Unknown') for role in embedded['roles']]
+                            text += f"- **Roles**: {', '.join(roles)}\n"
+
+                    return [TextContent(type="text", text=text)]
+
+                elif name == "update_membership":
+                    membership_id = arguments["membership_id"]
+
+                    # Prepare update data
+                    update_data = {}
+                    if "role_ids" in arguments:
+                        update_data["role_ids"] = arguments["role_ids"]
+                    elif "role_id" in arguments:
+                        update_data["role_id"] = arguments["role_id"]
+
+                    if "notification_message" in arguments:
+                        update_data["notification_message"] = arguments["notification_message"]
+
+                    if not update_data:
+                        return [TextContent(type="text", text="❌ No fields provided to update.")]
+
+                    result = await self.client.update_membership(membership_id, update_data)
+
+                    text = f"✅ Membership #{membership_id} updated successfully:\n\n"
+
+                    if "_embedded" in result:
+                        embedded = result["_embedded"]
+                        if "roles" in embedded:
+                            roles = [role.get('name', 'Unknown') for role in embedded['roles']]
+                            text += f"- **Roles**: {', '.join(roles)}\n"
+
+                    return [TextContent(type="text", text=text)]
+
+                elif name == "delete_membership":
+                    membership_id = arguments["membership_id"]
+
+                    success = await self.client.delete_membership(membership_id)
+
+                    if success:
+                        text = f"✅ Membership #{membership_id} deleted successfully."
+                    else:
+                        text = f"❌ Failed to delete membership #{membership_id}."
+
+                    return [TextContent(type="text", text=text)]
+
+                elif name == "get_membership":
+                    membership_id = arguments["membership_id"]
+                    result = await self.client.get_membership(membership_id)
+
+                    text = f"**Membership Details:**\n\n"
+                    text += f"- **ID**: #{result.get('id', 'N/A')}\n"
+
+                    if "_embedded" in result:
+                        embedded = result["_embedded"]
+                        if "project" in embedded:
+                            text += f"- **Project**: {embedded['project'].get('name', 'Unknown')}\n"
+                        if "principal" in embedded:
+                            text += f"- **User/Group**: {embedded['principal'].get('name', 'Unknown')}\n"
+                        if "roles" in embedded:
+                            roles = [role.get('name', 'Unknown') for role in embedded['roles']]
+                            text += f"- **Roles**: {', '.join(roles)}\n"
+
+                    return [TextContent(type="text", text=text)]
+
+                elif name == "list_project_members":
+                    project_id = arguments["project_id"]
+
+                    # Filter memberships by project
+                    filters = json.dumps([{"project": {"operator": "=", "values": [str(project_id)]}}])
+                    result = await self.client.get_memberships(project_id=project_id)
+                    memberships = result.get("_embedded", {}).get("elements", [])
+
+                    if not memberships:
+                        text = f"No members found for project #{project_id}."
+                    else:
+                        text = f"**Project #{project_id} Members ({len(memberships)}):**\n\n"
+                        for membership in memberships:
+                            if "_embedded" in membership:
+                                embedded = membership["_embedded"]
+                                user_name = "Unknown"
+                                roles = []
+
+                                if "principal" in embedded:
+                                    user_name = embedded["principal"].get('name', 'Unknown')
+                                if "roles" in embedded:
+                                    roles = [role.get('name', 'Unknown') for role in embedded['roles']]
+
+                                text += f"- **{user_name}**: {', '.join(roles)}\n"
+
+                    return [TextContent(type="text", text=text)]
+
+                elif name == "list_user_projects":
+                    user_id = arguments["user_id"]
+
+                    # Filter memberships by user
+                    result = await self.client.get_memberships(user_id=user_id)
+                    memberships = result.get("_embedded", {}).get("elements", [])
+
+                    if not memberships:
+                        text = f"No projects found for user #{user_id}."
+                    else:
+                        text = f"**User #{user_id} Projects ({len(memberships)}):**\n\n"
+                        for membership in memberships:
+                            if "_embedded" in membership:
+                                embedded = membership["_embedded"]
+                                project_name = "Unknown"
+                                roles = []
+
+                                if "project" in embedded:
+                                    project_name = embedded["project"].get('name', 'Unknown')
+                                if "roles" in embedded:
+                                    roles = [role.get('name', 'Unknown') for role in embedded['roles']]
+
+                                text += f"- **{project_name}**: {', '.join(roles)}\n"
+
+                    return [TextContent(type="text", text=text)]
+
+                elif name == "list_roles":
+                    result = await self.client.get_roles()
+                    roles = result.get("_embedded", {}).get("elements", [])
+
+                    if not roles:
+                        text = "No roles found."
+                    else:
+                        text = f"Available roles ({len(roles)}):\n\n"
+                        for role in roles:
+                            text += f"- **{role.get('name', 'Unnamed')}** (ID: {role.get('id', 'N/A')})\n"
+
+                    return [TextContent(type="text", text=text)]
+
+                elif name == "get_role":
+                    role_id = arguments["role_id"]
+                    result = await self.client.get_role(role_id)
+
+                    text = f"**Role Details:**\n\n"
+                    text += f"- **Name**: {result.get('name', 'N/A')}\n"
+                    text += f"- **ID**: #{result.get('id', 'N/A')}\n"
+
+                    # Add any additional role information if available
+                    if "permissions" in result:
+                        permissions = result["permissions"]
+                        if permissions:
+                            text += f"- **Permissions**: {len(permissions)} permissions assigned\n"
+
+                    return [TextContent(type="text", text=text)]
+
                 else:
                     return [TextContent(
                         type="text",
